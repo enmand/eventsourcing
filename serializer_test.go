@@ -12,7 +12,7 @@ import (
 func initSerializers(t *testing.T) []*eventsourcing.Serializer[Data] {
 	var result []*eventsourcing.Serializer[Data]
 	s := eventsourcing.NewSerializer[Data](json.Marshal, json.Unmarshal)
-	err := s.Register(&SomeAggregate{}, s.Events(&SomeData{}, &SomeData2{}))
+	err := s.RegisterAggregate(&SomeAggregate{})
 	if err != nil {
 		t.Fatalf("could not register aggregate events %v", err)
 	}
@@ -27,6 +27,13 @@ type SomeAggregate struct {
 func (s *SomeAggregate) Transition(event eventsourcing.Event[Data]) {}
 
 type Data interface{ data() }
+
+func (s *SomeAggregate) RegisterEvents(f eventsourcing.EventsFunc[Data]) error {
+	return f(
+		&SomeData{},
+		&SomeData2{},
+	)
+}
 
 type SomeData struct {
 	A int
@@ -69,11 +76,10 @@ func TestSerializeDeserialize(t *testing.T) {
 				t.Fatalf("Could not Unmarshal data, %v", err)
 			}
 
-			/*
-				if data2.A != data.A {
-					t.Fatalf("wrong value in A expected: %d, actual: %d", data.A, data2.A)
-				}
-			*/
+			if data2.(*SomeData).A != data.A {
+				t.Fatalf("wrong value in A expected: %d, actual: %d", data.A, data2.(*SomeData).A)
+			}
+
 			m, err := s.Marshal(metaData)
 			if err != nil {
 				t.Fatalf("could not Marshal metadata, %v", err)
